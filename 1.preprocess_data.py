@@ -27,7 +27,7 @@ def assign_dmr_label(data_df, dmr_df):
                 data_df.at[idx, 'dmr_label'] = list(overlaps)[0].data
             elif count > 1:
                 print(f'{row} overlaps with multiple dmrs')
-                data_df.at[idx, 'dmr_label'] = 'multiple'
+                data_df.at[idx, 'dmr_label'] = list(overlaps)[0].data
 
     data_df['dmr_label'] = data_df['dmr_label'].astype(int)
     # Return the dataframe with dmr_label assigned
@@ -52,14 +52,14 @@ def seq_to_kmer(seq, k=3):
     return " ".join(converted_seq), "".join(methyl_seq)
 
 
-def convert_to_methylbert_format(data_df, dmr_df, format_df):
+def convert_to_methylbert_format(data_df, dmr_df, format_df, target_label, background_label):
     data_df = assign_dmr_label(data_df, dmr_df)
     data_df[['dna_seq', 'methyl_seq']] = data_df['seq'].apply(lambda x: pd.Series(seq_to_kmer(x, k=3)))
     data_df = data_df.rename(columns={"chr":"ref_name", 
                                       "start":"ref_pos", 
                                       "end":"length"})
     data_df['length'] = data_df['length'] - data_df['ref_pos']
-    data_df['ctype'] = data_df['ctype'].replace({'PL': 'T', 'normal': 'N'})
+    data_df['ctype'] = data_df['ctype'].replace({target_label: 'T', background_label: 'N'})
     data_df['dmr_ctype'] = 'T'
 
     # Ensure data_df has all columns from format_df
@@ -76,19 +76,22 @@ def convert_to_methylbert_format(data_df, dmr_df, format_df):
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train", type=str, help="Training data file path")
-    parser.add_argument("--test", type=str, help="Test data file path")
+    parser.add_argument("--train", type=str, help="Training data file path", default=None)
+    parser.add_argument("--val", type=str, help="Validation data file path", default=None)
+    parser.add_argument("--test", type=str, help="Test data file path", default=None)
     parser.add_argument("--format", type=str, help="Mehtylbert format file path")
     parser.add_argument("--dmr", type=str, help="DMR file path")
     parser.add_argument("--output", type=str, help="Output directory")
+    parser.add_argument("--target", type=str, help="Target label", default="T")
+    parser.add_argument("--background", type=str, help="Background label", default="N")
     args = parser.parse_args()
 
-    return (args.train, args.test, args.format, args.dmr, args.output)
+    return (args.train, args.val, args.test, args.format, args.dmr, args.output, args.target, args.background)
 
 
 def main():
     # Parse input parameters
-    (train_file, test_file, methylbert_format_file, dmr_file, output_dir) = parse_arguments()
+    (train_file, val_file, test_file, methylbert_format_file, dmr_file, output_dir, target_label, background_label) = parse_arguments()
 
     # Methylbert data format
     methylbert_format = pd.read_csv(methylbert_format_file, sep='\t', nrows=10)
@@ -98,14 +101,20 @@ def main():
     dmr_df['dmr_label'] = range(dmr_df.shape[0])
     
     # Convert MQ training data to MB
-    raw_train_data = pd.read_csv(train_file, sep='\t', names=['chr', 'start', 'end', 'seq', 'name', 'ctype'])
-    converted_train_data = convert_to_methylbert_format(raw_train_data, dmr_df, methylbert_format)
-    converted_train_data.to_csv(os.path.join(output_dir, 'train_seq.csv'), sep='\t', header=True, index=None)
+    if train_file:
+        raw_train_data = pd.read_csv(train_file, sep='\t', names=['chr', 'start', 'end', 'seq', 'name', 'ctype'])
+        converted_train_data = convert_to_methylbert_format(raw_train_data, dmr_df, methylbert_format, target_label, background_label)
+        converted_train_data.to_csv(os.path.join(output_dir, 'train_seq.csv'), sep='\t', header=True, index=None)
     
-    # Convert MQ test data to MB
-    raw_test_data = pd.read_csv(test_file, sep='\t', names=['chr', 'start', 'end', 'seq', 'name', 'ctype'])
-    converted_test_data = convert_to_methylbert_format(raw_test_data, dmr_df, methylbert_format)
-    converted_test_data.to_csv(os.path.join(output_dir, 'test_seq.csv'), sep='\t', header=True, index=None)
+    if val_file:
+        raw_val_data = pd.read_csv(val_file, sep='\t', names=['chr', 'start', 'end', 'seq', 'name', 'ctype'])
+        converted_train_data = convert_to_methylbert_format(raw_val_data, dmr_df, methylbert_format, target_label, background_label)
+        converted_train_data.to_csv(os.path.join(output_dir, 'val_seq.csv'), sep='\t', header=True, index=None)
+        
+    if test_file:
+        raw_test_data = pd.read_csv(test_file, sep='\t', names=['chr', 'start', 'end', 'seq', 'name', 'ctype'])
+        converted_test_data = convert_to_methylbert_format(raw_test_data, dmr_df, methylbert_format, target_label, background_label)
+        converted_test_data.to_csv(os.path.join(output_dir, 'test_seq.csv'), sep='\t', header=True, index=None)
 
 
 if __name__ == "__main__":

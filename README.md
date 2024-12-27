@@ -4,7 +4,7 @@ This document provides instructions for preprocessing and fine-tuning the `Methy
 
 ## File Structure
 
-- **1.preprocess_data.py**: Preprocesses methylation data for fine-tuning, converting MethylQUEEN format to MethylBERT format.
+- **1.preprocess_data.py**: Preprocesses methylation data for fine-tuning.
 - **2.finetune.py**: Fine-tunes the `MethylBERT` model on the preprocessed methylation dataset using a specified batch size and training parameters.
 - **3.deconvolute.py**: Uses the finetuned `MethylBERT` model to predict the test data set, assigning probability of each read.
 
@@ -20,7 +20,7 @@ Additional dependencies may be required depending on the dataset format. Check t
 ## Usage
 
 ### Step 1: Data Preprocessing
-1. Place your raw methylation data in the expected MQ format (check 1.preprocess_data.py for details).
+1. Place your raw methylation data in the expected format (check 1.preprocess_data.py for details).
 2. Run the data preprocessing script to generate the input data for fine-tuning.
 ```bash
 python 1.preprocess_data.py --train <path_to_training_data> --test <path_to_test_data> --format <path_to_methylbert_format_file> --dmr <path_to_dmr> --output <path_to_output_directory>
